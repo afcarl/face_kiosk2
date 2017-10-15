@@ -20,6 +20,7 @@ parser.add_argument("--font_scale", type=float, default=0.5)
 parser.add_argument("--font_thickness", type=int, default=1)
 parser.add_argument("--show_name", type=int, default=1)
 parser.add_argument("--show_distance", type=int, default=1)
+parser.add_argument('--fullscreen', action='store_true', default=False)
 
 parser.add_argument("--images_path", default="/storage/LFW/RFLFW")
 parser.add_argument("--data_file", default="RFLFW2.csv")
@@ -27,7 +28,7 @@ parser.add_argument("--vecs_file", default="RFLFW2.npy")
 parser.add_argument("--shape_predictor_path", default='shape_predictor_68_face_landmarks.dat')
 parser.add_argument("--face_rec_model_path", default='dlib_face_recognition_resnet_model_v1.dat')
 parser.add_argument("--upscale", type=int, default=0)
-parser.add_argument("--jitter", type=int, default=10)
+parser.add_argument("--jitter", type=int, default=0)
 parser.add_argument("--n_neighbors", type=int, default=5)
 parser.add_argument("--algorithm", choices=['auto', 'ball_tree', 'kd_tree', 'brute'], default='auto')
 parser.add_argument("--alpha", type=float, default=0.1)
@@ -51,8 +52,12 @@ with open(args.data_file) as csvfile:
 
 print("Initializing video capture...")
 video = cv2.VideoCapture(args.capture_device)
-frame_width = int(video.get(cv2.CAP_PROP_FRAME_WIDTH))
-frame_height = int(video.get(cv2.CAP_PROP_FRAME_HEIGHT))
+frame_width = int(video.get(cv2.cv.CV_CAP_PROP_FRAME_WIDTH))
+frame_height = int(video.get(cv2.cv.CV_CAP_PROP_FRAME_HEIGHT))
+
+if args.fullscreen:
+    cv2.namedWindow("Video", cv2.WINDOW_NORMAL)
+    cv2.setWindowProperty("Video", cv2.WND_PROP_FULLSCREEN, cv2.cv.CV_WINDOW_FULLSCREEN)
 
 # initialize canvas and make background white
 canvas = np.zeros((args.canvas_height, args.canvas_width, 3), dtype=np.uint8)
@@ -87,6 +92,7 @@ while True:
   if len(rects) == 0:
     canvas[frame_top:frame_top+frame_height, frame_left:frame_left+frame_width, :] = frame
     descriptor = None
+    canvas[face_top:].fill(0)
   else:
     # draw rectangle around the face
     frame2 = frame.copy()
@@ -117,7 +123,6 @@ while True:
         face = cv2.imread(filename)
         
         # draw the face
-        print(face)
         face = cv2.resize(face, (args.face_size, args.face_size))
         face_left = face_gap + i * (face_gap + args.face_size)
         canvas[face_top:face_top+args.face_size,face_left:face_left+args.face_size, :] = face

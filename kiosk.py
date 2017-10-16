@@ -25,6 +25,8 @@ parser.add_argument('--fullscreen', action='store_true', default=False)
 parser.add_argument("--images_path", default="/storage/LFW/RFLFW")
 parser.add_argument("--data_file", default="RFLFW2.csv")
 parser.add_argument("--vecs_file", default="RFLFW2.npy")
+parser.add_argument("--detector", choices=['hog', 'cnn', 'cv2gpu'], default='hog')
+parser.add_argument("--cnn_model_path", default='mmod_human_face_detector.dat')
 parser.add_argument("--shape_predictor_path", default='shape_predictor_68_face_landmarks.dat')
 parser.add_argument("--face_rec_model_path", default='dlib_face_recognition_resnet_model_v1.dat')
 parser.add_argument("--upscale", type=int, default=0)
@@ -36,7 +38,18 @@ parser.add_argument("--alpha", type=float, default=0.1)
 args = parser.parse_args()
 
 print("Initializing face detector...")
-detector = dlib.get_frontal_face_detector()
+if args.detector == 'hog':
+  detector = dlib.get_frontal_face_detector()
+elif args.detector == 'cnn':
+  detector = dlib.cnn_face_detection_model_v1(args.cnn_model_path)
+elif args.detector == 'cv2gpu':
+  import cv2gpu
+  if cv2gpu.is_cuda_compatible():
+    cv2gpu.init_gpu_detector('cascade_frontalface_cuda.xml')
+  else:
+    cv2gpu.init_cpu_detector('cascade_frontalface.xml')
+else:
+  assert False, "Unknown detector " + args.detector
 predictor = dlib.shape_predictor(args.shape_predictor_path)
 facerec = dlib.face_recognition_model_v1(args.face_rec_model_path)
 
@@ -86,7 +99,10 @@ while True:
 
   # detect faces
   gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-  rects = detector(gray, args.upscale)
+  if args.detector == 'cv2gpu':
+    rects = cv2gpu.find_faces(gray)
+  else:
+    rects = detector(gray, args.upscale)
 
   # skip following if no faces were found
   if len(rects) == 0:
@@ -98,6 +114,10 @@ while True:
     frame2 = frame.copy()
     frame = frame[...,::-1] # BGR to RGB
     rect = rects[0]
+    if args.detector == 'cnn':
+      rect = rect.rect
+    elif args.detector == 'cv2gpu':
+      rect = dlib.rectangle(rect[0], rect[1], rect[0] + rect[2], rect[1] + rect[3])
     cv2.rectangle(frame2, (rect.left(), rect.top()), (rect.right(), rect.bottom()), (0, 255, 0), 2)
     canvas[frame_top:frame_top+frame_height, frame_left:frame_left+frame_width, :] = frame2
 

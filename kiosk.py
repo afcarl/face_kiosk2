@@ -45,9 +45,9 @@ elif args.detector == 'cnn':
 elif args.detector == 'cv2gpu':
   import cv2gpu
   if cv2gpu.is_cuda_compatible():
-    cv2gpu.init_gpu_detector('cascade_frontalface_cuda.xml')
+    cv2gpu.init_gpu_detector('haarcascade_frontalface_default_cuda.xml')
   else:
-    cv2gpu.init_cpu_detector('cascade_frontalface.xml')
+    cv2gpu.init_cpu_detector('haarcascade_frontalface_default.xml')
 else:
   assert False, "Unknown detector " + args.detector
 predictor = dlib.shape_predictor(args.shape_predictor_path)

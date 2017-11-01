@@ -89,12 +89,15 @@ assert retval, "Unable to determine text height"
 
 frame_left = int(args.canvas_width / 2 - frame_width / 2)
 assert frame_left > 0, "Video frame too big, increase canvas width"
-frame_top = int((args.canvas_height - frame_height - args.face_size - text_height) / 3)
-assert frame_top > 0, "Video frame too big, increase canvas height"
+padding = int((args.canvas_height - frame_height - args.face_size - text_height) / 3)
+assert padding > 0, "Video frame too big, increase canvas height"
+frame_top = 2 * padding + args.face_size + text_height
+
+print(frame_top, frame_height, frame_top + frame_height, canvas.shape[0])
 
 face_gap = int((args.canvas_width - args.face_count * args.face_size) / (args.face_count + 1))
 assert face_gap > 0, "Lower face size"
-face_top = int(2 * frame_top + frame_height)
+face_top = padding
 
 text_top = int(face_top + args.face_size + text_height + 5)
 
@@ -124,7 +127,7 @@ while True:
   if len(rects) == 0:
     canvas[frame_top:frame_top+frame_height, frame_left:frame_left+frame_width, :] = frame
     descriptor = None
-    canvas[face_top:].fill(0)
+    canvas[face_top:frame_top].fill(0)
   else:
     # draw rectangle around the face
     frame2 = frame.copy()
@@ -152,8 +155,8 @@ while True:
     dists, idxs = nn.kneighbors(descriptor[np.newaxis])
 
     # erase previous faces and texts
-    canvas[face_top:].fill(0)
-
+    canvas[face_top:frame_top].fill(0)
+    
     # loop over top face groups
     for i, (d, k) in enumerate(zip(dists[0], idxs[0])):
         res = data[k]

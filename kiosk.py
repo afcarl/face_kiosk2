@@ -3,6 +3,7 @@ import argparse
 import numpy as np
 import csv
 from sklearn.neighbors import NearestNeighbors
+from imutils.video import VideoStream
 import dlib
 import cv2
 import os
@@ -25,7 +26,7 @@ parser.add_argument('--fullscreen', action='store_true', default=False)
 parser.add_argument("--images_path", default="/storage/LFW/RFLFW")
 parser.add_argument("--data_file", default="RFLFW2.csv")
 parser.add_argument("--vecs_file", default="RFLFW2.npy")
-parser.add_argument("--detector", choices=['hog', 'cnn', 'cv2gpu'], default='hog')
+parser.add_argument("--detector", choices=['hog', 'cnn', 'opencv', 'cv2gpu'], default='hog')
 parser.add_argument("--cnn_model_path", default='mmod_human_face_detector.dat')
 parser.add_argument("--shape_predictor_path", default='shape_predictor_68_face_landmarks.dat')
 parser.add_argument("--face_rec_model_path", default='dlib_face_recognition_resnet_model_v1.dat')
@@ -42,6 +43,8 @@ if args.detector == 'hog':
   detector = dlib.get_frontal_face_detector()
 elif args.detector == 'cnn':
   detector = dlib.cnn_face_detection_model_v1(args.cnn_model_path)
+elif args.detector == 'opencv':
+  detector = cv2.CascadeClassifier('haarcascade_frontalface_default.xml')
 elif args.detector == 'cv2gpu':
   import cv2gpu
   if cv2gpu.is_cuda_compatible():
@@ -64,9 +67,13 @@ with open(args.data_file) as csvfile:
     data = list(reader)
 
 print("Initializing video capture...")
-video = cv2.VideoCapture(args.capture_device)
-frame_width = int(video.get(cv2.cv.CV_CAP_PROP_FRAME_WIDTH))
-frame_height = int(video.get(cv2.cv.CV_CAP_PROP_FRAME_HEIGHT))
+#video = cv2.VideoCapture(args.capture_device)
+video = VideoStream(args.capture_device).start()
+
+#frame_width = int(video.get(cv2.cv.CV_CAP_PROP_FRAME_WIDTH))
+#frame_height = int(video.get(cv2.cv.CV_CAP_PROP_FRAME_HEIGHT))
+frame = video.read()
+frame_height, frame_width, _ = frame.shape
 
 if args.fullscreen:
     cv2.namedWindow("Video", cv2.WINDOW_NORMAL)
@@ -94,12 +101,21 @@ text_top = int(face_top + args.face_size + text_height + 5)
 descriptor = None
 while True:
   # capture frame
-  ret, frame = video.read()
-  assert ret, "Frame could not be read from video capture device"
+  #ret, frame = video.read()
+  #assert ret, "Frame could not be read from video capture device"
+  frame = video.read()
 
   # detect faces
   gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-  if args.detector == 'cv2gpu':
+  if args.detector == 'opencv':
+    rects = detector.detectMultiScale(
+        gray,
+        scaleFactor=1.1,
+        minNeighbors=5,
+        minSize=(100, 100),
+        flags = cv2.cv.CV_HAAR_SCALE_IMAGE
+    )
+  elif args.detector == 'cv2gpu':
     rects = cv2gpu.find_faces(gray)
   else:
     rects = detector(gray, args.upscale)
@@ -116,6 +132,9 @@ while True:
     rect = rects[0]
     if args.detector == 'cnn':
       rect = rect.rect
+    elif args.detector == 'opencv':
+      rect = [long(r) for r in rect]
+      rect = dlib.rectangle(rect[0], rect[1], rect[0] + rect[2], rect[1] + rect[3])
     elif args.detector == 'cv2gpu':
       rect = dlib.rectangle(rect[0], rect[1], rect[0] + rect[2], rect[1] + rect[3])
     cv2.rectangle(frame2, (rect.left(), rect.top()), (rect.right(), rect.bottom()), (0, 255, 0), 2)
@@ -169,5 +188,6 @@ while True:
     break;
 
 # when everything is done, release the capture
-video.release()
+#video.release()
+video.stop()
 cv2.destroyAllWindows()
